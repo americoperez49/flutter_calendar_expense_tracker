@@ -1,123 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_calendar_expense_tracker/providers/googler_signin_provider.dart';
-import 'package:flutter_calendar_expense_tracker/widgets/number_input.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_calendar_expense_tracker/providers/google_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:rxdart/rxdart.dart';
-
-class CalendarView extends StatefulWidget {
-  final GoogleSignIn googleSignIn;
-  final String? photoURL;
-  final String? userName;
-  const CalendarView(
-      {Key? key, required this.googleSignIn, this.photoURL, this.userName})
-      : super(key: key);
-
-  @override
-  State<CalendarView> createState() => _CalendarViewState();
-}
-
-class _CalendarViewState extends State<CalendarView> {
-  bool _moneyButtonEnabled = false;
-  BehaviorSubject<bool> $moneyButton = BehaviorSubject<bool>();
-  late MyNumberInput input;
-
-  @override
-  void initState() {
-    super.initState();
-    input = MyNumberInput(
-      myLabel: 'Weeks to Calculate',
-      myIcon: Icons.calendar_month_rounded,
-      enabled: true,
-      $moneyButton: $moneyButton,
-    );
-
-    $moneyButton.listen((value) => {
-          setState(() {
-            _moneyButtonEnabled = value;
-          })
-        });
-  }
-
-  Future<void> _handleSignOut() async {
-    await widget.googleSignIn.disconnect();
-  }
-
-  AppBar _buildAppBar() {
-    return AppBar(
-      backgroundColor: Colors.amber,
-      actions: [
-        IconButton(icon: const Icon(Icons.logout), onPressed: _handleSignOut),
-      ],
-      title: Row(children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(80),
-          child: Image.network(
-            widget.photoURL!,
-            height: 35,
-          ),
-        ),
-        const SizedBox(
-          width: 5,
-        ),
-        Text(
-          widget.userName!,
-          style: const TextStyle(fontSize: 20),
-        )
-      ]),
-    );
-  }
-
-  Widget _buildBody() {
-    return Container(
-      alignment: Alignment.center,
-      color: Colors.amber[700],
-      child: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          input,
-          const SizedBox(height: 6),
-          MyNumberInput(
-            myLabel: 'Money in the Bank',
-            myIcon: Icons.attach_money,
-            enabled: _moneyButtonEnabled,
-          ),
-          ElevatedButton(onPressed: () => {}, child: const Text("CLick me"))
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(appBar: _buildAppBar(), body: _buildBody());
-  }
-}
 
 class CalendarView2 extends StatelessWidget {
   CalendarView2({Key? key}) : super(key: key);
-  MyNumberInput input = MyNumberInput(
-    myLabel: 'Weeks to Calculate',
-    myIcon: Icons.calendar_month_rounded,
-    enabled: true,
-    $moneyButton: BehaviorSubject<bool>(),
-  );
 
   AppBar _buildAppBar(context) {
     return AppBar(
       backgroundColor: Colors.amber,
       actions: [
-        Consumer<GoogleSignInProvider>(
-            builder: (context, googleSignInProvider, child) => IconButton(
+        Consumer<GoogleProvider>(
+            builder: (context, googleProvider, child) => IconButton(
                 icon: const Icon(Icons.logout),
-                onPressed: () => googleSignInProvider.signOut())),
+                onPressed: () => googleProvider.signOut())),
       ],
-      title: Consumer<GoogleSignInProvider>(
-        builder: (context, googleSignInProvider, child) => Row(children: [
+      title: Consumer<GoogleProvider>(
+        builder: (context, googleProvider, child) => Row(children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(80),
             child: Image.network(
-              googleSignInProvider.user!.photoUrl!,
+              googleProvider.user!.photoUrl!,
               height: 35,
             ),
           ),
@@ -125,7 +28,7 @@ class CalendarView2 extends StatelessWidget {
             width: 5,
           ),
           Text(
-            googleSignInProvider.user!.displayName!,
+            googleProvider.user!.displayName!,
             style: const TextStyle(fontSize: 20),
           )
         ]),
@@ -133,25 +36,138 @@ class CalendarView2 extends StatelessWidget {
     );
   }
 
+  Widget numberOfWeeksInput(context) {
+    var googleProvider = Provider.of<GoogleProvider>(context, listen: false);
+    return Container(
+        decoration: BoxDecoration(
+            color: Colors.amber[400],
+            borderRadius: BorderRadius.circular(16.0)),
+        padding: const EdgeInsets.all(16.0),
+        child: TextFormField(
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(
+                icon: Icon(Icons.calendar_month_rounded),
+                label: Text("Weeks to Calculate")),
+            onFieldSubmitted: (value) => {
+                  if (value != "")
+                    {googleProvider.getCalenderEvents(int.parse(value))}
+                  else
+                    googleProvider.reset()
+                }));
+  }
+
+  Widget moneyInTheBankInput(context) {
+    var googleProvider = Provider.of<GoogleProvider>(context);
+    if (googleProvider.numberOfWeeks > 0) {
+      return Container(
+          decoration: BoxDecoration(
+              color: Colors.amber[400],
+              borderRadius: BorderRadius.circular(16.0)),
+          padding: const EdgeInsets.all(16.0),
+          child: TextFormField(
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(
+                icon: Icon(Icons.attach_money),
+                label: Text("Money in the Bank")),
+            onFieldSubmitted: (value) => {},
+          ));
+    } else {
+      return Container(
+          decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(16.0)),
+          padding: const EdgeInsets.all(16.0),
+          child: TextFormField(
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(
+              icon: Icon(Icons.attach_money),
+              label: Text("Money in the Bank"),
+            ),
+            onFieldSubmitted: (value) => {},
+            enabled: false,
+          ));
+    }
+  }
+
   Widget _buildBody() {
     return Container(
-      alignment: Alignment.center,
-      color: Colors.amber[700],
-      child: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          input,
-          const SizedBox(height: 6),
-          MyNumberInput(
-            myLabel: 'Money in the Bank',
-            myIcon: Icons.attach_money,
-            // enabled: _moneyButtonEnabled,
-            enabled: true,
-          ),
-          ElevatedButton(onPressed: () => {}, child: const Text("CLick me"))
-        ],
-      ),
-    );
+        alignment: Alignment.center,
+        child: Consumer<GoogleProvider>(
+          builder: (context, googleProvider, child) {
+            return Container(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  numberOfWeeksInput(context),
+                  const SizedBox(height: 6),
+                  moneyInTheBankInput(context),
+                  ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(40), // NEW
+                      ),
+                      onPressed: googleProvider.numberOfWeeks > 0
+                          ? () {
+                              print('Submit');
+                            }
+                          : null,
+                      child: const Text("Calculate")),
+                  ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(40), // NEW
+                      ),
+                      onPressed: googleProvider.events!.isNotEmpty
+                          ? () {
+                              googleProvider.ToggleView();
+                            }
+                          : null,
+                      child: Text(googleProvider.buttonText)),
+
+                  Flexible(
+                    child: Stack(
+                      children: [
+                        ListView.builder(
+                          scrollDirection: Axis.vertical,
+                          shrinkWrap: true,
+                          itemBuilder: (BuildContext context, int index) {
+                            if (googleProvider.events!.isNotEmpty) {
+                              return Text(
+                                  googleProvider.events![index].summary ?? "");
+                            } else {
+                              return Text("");
+                            }
+                          },
+                          itemCount: googleProvider.events!.length,
+                          padding: const EdgeInsets.all(16.0),
+                        ),
+                        Visibility(
+                          visible: googleProvider.gettingEvents ? true : false,
+                          child: Center(
+                              child: SizedBox(
+                            height: 200.0,
+                            width: 200.0,
+                            child: CircularProgressIndicator(
+                              color: Colors.amber,
+                              strokeWidth: 20,
+                            ),
+                          )),
+                        )
+                      ],
+                    ),
+                  )
+
+                  // MyNumberInput(
+                  //   myLabel: 'Money in the Bank',
+                  //   myIcon: Icons.attach_money,
+                  //   enabled: _moneyButtonEnabled,
+                  // ),
+                ],
+              ),
+            );
+          },
+        ));
   }
 
   @override
